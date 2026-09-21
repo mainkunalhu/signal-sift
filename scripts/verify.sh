@@ -44,12 +44,12 @@ wait_for() {
   done
   fail "$2"
 }
-wait_for "http://localhost:8000/health" "api :8000" 40
-wait_for "http://localhost:3001/health" "gateway :3001" 20
-wait_for "http://localhost:3000/" "web :3000" 30
+wait_for "http://127.0.0.1:8000/" "api :8000" 40
+wait_for "http://127.0.0.1:3001/health" "gateway :3001" 20
+wait_for "http://127.0.0.1:3000/" "web :3000" 30
 
 echo "== 4. e2e SSE through gateway (chitchat: 1 Groq call, 0 Tavily) =="
-OUT=$(curl -sN -X POST http://localhost:3001/api/research \
+OUT=$(curl -sN -X POST http://127.0.0.1:3001/api/research \
   -H "Content-Type: application/json" \
   -d '{"query":"hello there","max_subquestions":2}' --max-time 90)
 echo "$OUT" | grep -q "not_research" \
@@ -58,6 +58,6 @@ echo "$OUT" | grep -q "not_research" \
 
 echo ""
 echo "ALL GREEN."
-echo "  UI:      http://localhost:3000"
-echo "  API docs http://localhost:8000/docs  (health: /health)"
+echo "  UI:      http://127.0.0.1:3000"
+echo "  API docs http://127.0.0.1:8000/docs  (health: /health)"
 echo "  Stop:    make down"

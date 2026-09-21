@@ -1,38 +1,40 @@
 #!/usr/bin/env bash
-# Boot the full stack for manual testing: API + gateway + web.
-# Spends NOTHING: no tests, no builds, no queries — just processes + health.
-# Usage: make dev-all   |   Stop: make down
+# Boot the full stack IN FOREGROUND with live, prefixed logs — like any dev server.
+# Ctrl-C stops everything. Spends nothing (no tests, no builds, no queries).
+#
+# Why boots were slow: the API preloaded the embedding model on every boot
+# (~20s torch load). SKIP_WARMUP=1 (default here) skips it; the first research
+# query pays ~15s model load instead, visible in the [api] logs.
+# Unset it for production-like boots: SKIP_WARMUP= make dev-all
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-API="$ROOT/apps/api"
-WEB="$ROOT/apps/web"
-GW="$ROOT/apps/gateway"
+export SKIP_WARMUP="${SKIP_WARMUP:-1}"
 
 command -v uv >/dev/null || { echo "missing: uv (brew install uv)"; exit 1; }
 command -v bun >/dev/null || { echo "missing: bun (brew install bun)"; exit 1; }
 
-pkill -f "uvicorn main:app" 2>/dev/null || true
-pkill -f "bun run src/index.ts" 2>/dev/null || true
-pkill -f "bun run dev" 2>/dev/null || true
-sleep 2
+trap 'kill 0 2>/dev/null' EXIT INT TERM
 
-(cd "$API" && nohup uv run uvicorn main:app --port 8000 > /tmp/signalsift-api.log 2>&1 &)
-(cd "$GW" && nohup bun run src/index.ts > /tmp/signalsift-gw.log 2>&1 &)
-(cd "$WEB" && nohup bun run dev --port 3000 > /tmp/signalsift-web.log 2>&1 &)
+# Health reporter: prints UP lines as each service becomes ready.
+(
+  up() { echo "[up] $1"; }
+  wait_for() {
+    local i
+    for i in $(seq 1 "$3"); do
+      if curl -sf -m 2 "$1" >/dev/null 2>&1; then up "$2"; return 0; fi
+      sleep 2
+    done
+    echo "[up] TIMEOUT: $2 (check the [api]/[gw]/[web] logs above)"
+  }
+  wait_for "http://127.0.0.1:8000/" "api      http://127.0.0.1:8000 (docs: /docs)" 90
+  wait_for "http://127.0.0.1:3001/health" "gateway  http://127.0.0.1:3001" 30
+  wait_for "http://127.0.0.1:3000/" "web UI   http://127.0.0.1:3000" 90
+  echo "[up] All up. Open the UI and ask a question. Ctrl-C stops everything."
+) &
 
-wait_for() {
-  local i
-  for i in $(seq 1 "$3"); do
-    if curl -sf -m 3 "$1" >/dev/null 2>&1; then echo "  UP: $2"; return 0; fi
-    sleep 2
-  done
-  echo "  DOWN: $2 (see /tmp/signalsift-*.log)"; exit 1
-}
-wait_for "http://localhost:8000/health" "api      http://localhost:8000 (docs: /docs)" 40
-wait_for "http://localhost:3001/health" "gateway  http://localhost:3001" 20
-wait_for "http://localhost:3000/" "web UI   http://localhost:3000" 30
+(cd "$ROOT/apps/api" && uv run uvicorn main:app --port 8000 2>&1 | sed -l 's/^/[api] /') &
+(cd "$ROOT/apps/gateway" && bun run src/index.ts 2>&1 | sed -l 's/^/[gw] /') &
+(cd "$ROOT/apps/web" && bun run dev --port 3000 2>&1 | sed -l 's/^/[web] /') &
 
-echo ""
-echo "All up. Open the UI, ask a question, watch it research."
-echo "Stop everything: make down"
+wait

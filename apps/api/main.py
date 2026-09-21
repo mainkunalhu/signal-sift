@@ -2,6 +2,8 @@
 
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI
 
 from agents.observability import setup_tracing
@@ -12,9 +14,10 @@ from routes.research import router as research_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_tracing()
-    from tools.embed import warmup
+    if os.getenv("SKIP_WARMUP") != "1":
+        from tools.embed import warmup
 
-    await warmup()  # preload bge-small so first request never pays model load
+        await warmup()  # preload bge-small so first request never pays model load
     yield
 
 
