@@ -7,6 +7,7 @@ import ReportStream from "../components/ReportStream";
 import ResearchProgress, { type LiveState } from "../components/ResearchProgress";
 import SourcesPanel from "../components/SourcesPanel";
 import TraceView, { type TraceState } from "../components/TraceView";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { autoTitle, createChat, type ChatMessage } from "../lib/api";
 import { streamResearch } from "../lib/sse";
@@ -209,9 +210,14 @@ export default function Home() {
   );
 
   const showEmpty = messages.length === 0 && !running && !error;
+  // Staged live view: research activity first, streaming report after.
+  const tokensStarted = liveTokens.length > 0;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-4 sm:px-6">
+    <div
+      className="mx-auto flex h-screen w-full max-w-3xl flex-col overflow-hidden px-4 sm:px-6"
+      style={{ height: "100dvh" }}
+    >
       <header className="flex items-center gap-2 py-3">
         <span
           aria-hidden
@@ -271,7 +277,7 @@ export default function Home() {
         <>
           <div
             ref={threadRef}
-            className="flex flex-1 flex-col gap-6 overflow-y-auto py-6"
+            className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-6"
             aria-live="polite"
           >
             {messages.map((m) =>
@@ -313,17 +319,28 @@ export default function Home() {
             )}
 
             {running && (
-              <div className="min-w-0">
-                <ResearchProgress live={live} running={running} />
-                {liveTokens ? (
-                  <ReportStream
-                    markdown={liveTokens}
-                    streaming
-                    sources={[]}
-                    onHoverSource={setHighlightUrl}
-                  />
+              <div className="min-w-0" aria-live="polite">
+                {tokensStarted ? (
+                  <>
+                    <p className="mb-3 flex items-center gap-2 text-[13px] text-zinc-400">
+                      <Badge variant="sky">writing report</Badge>
+                      <span className="tabular-nums text-zinc-500">
+                        {Object.values(live.progress).reduce((a, p) => a + p.urls.length, 0)}{" "}
+                        sources · {live.supported} claims kept
+                      </span>
+                    </p>
+                    <ReportStream
+                      markdown={liveTokens}
+                      streaming
+                      sources={[]}
+                      onHoverSource={setHighlightUrl}
+                    />
+                  </>
                 ) : (
-                  <p className="text-sm text-zinc-500">Gathering evidence…</p>
+                  <>
+                    <ResearchProgress live={live} running={running} />
+                    <p className="text-sm text-zinc-500">Gathering evidence…</p>
+                  </>
                 )}
                 <details className="mt-4">
                   <summary className="cursor-pointer text-[13px] font-medium text-zinc-500 transition-colors duration-150 ease-out hover:text-zinc-300">
@@ -346,7 +363,7 @@ export default function Home() {
             )}
           </div>
 
-          <div className="pt-2 pb-4 sm:pb-6">
+          <div className="pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <QueryBox loading={running} onAsk={(q) => void ask(q)} />
             <p className="mt-2 text-center text-[11px] text-zinc-600">
               Verified claims only — dropped statements never reach the report.

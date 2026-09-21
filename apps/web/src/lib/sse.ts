@@ -1,8 +1,8 @@
 "use client";
 
 /** Minimal SSE-over-POST client: parses frames, dispatches typed events.
- *  One automatic retry on network failure before the first byte; after that
- *  errors surface to the UI (retry button), never hidden loops.
+ *  A stream that ends without `done` is reported as an error (never a stuck
+ *  spinner). Exactly one retry, only for failures before the first byte.
  */
 import type { SseEvent } from "./events";
 
@@ -21,7 +21,12 @@ export async function streamResearch(
   },
   opts: StreamOptions = {},
 ): Promise<void> {
+  // Retry budget: exactly one retry, and only when the first attempt died
+  // before a single byte arrived. Mid-stream failures and truncations
+  // surface immediately — silently re-running a 30s pipeline is worse.
+  let started = false;
   const run = async () => {
+    let sawDone = false;
     const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/research`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
@@ -41,27 +46,35 @@ export async function streamResearch(
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      if (value && value.length > 0) started = true;
       buffer += decoder.decode(value, { stream: true });
       const frames = buffer.split(/\r?\n\r?\n/);
       buffer = frames.pop() ?? "";
       for (const frame of frames) {
         const event = parseFrame(frame);
-        if (event) handlers.onEvent(event);
+        if (event) {
+          if (event.event === "done") sawDone = true;
+          handlers.onEvent(event);
+        }
       }
     }
+    if (!sawDone) throw new Error("stream cut off before the report finished");
   };
 
   try {
     await run();
   } catch (err) {
     if ((err as Error).name === "AbortError") return;
-    // Single retry for pre-flight network failures only.
-    try {
-      await new Promise((r) => setTimeout(r, 800));
-      if (opts.signal?.aborted) return;
-      await run();
-    } catch (err2) {
-      if ((err2 as Error).name !== "AbortError") handlers.onError(err2 as Error);
+    if (!started) {
+      try {
+        await new Promise((r) => setTimeout(r, 800));
+        if (opts.signal?.aborted) return;
+        await run();
+      } catch (err2) {
+        if ((err2 as Error).name !== "AbortError") handlers.onError(err2 as Error);
+      }
+    } else {
+      handlers.onError(err as Error);
     }
   }
 }
