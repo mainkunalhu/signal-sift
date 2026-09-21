@@ -41,11 +41,7 @@ export default function QueryBox({
           autoFocus={autoFocus}
           className="min-h-[52px] w-full bg-transparent px-5 pt-1 text-[15px] text-zinc-100 outline-none placeholder:text-zinc-500 disabled:opacity-60"
         />
-        <div className="flex items-center px-3 pb-3">
-          <span className="ml-2 hidden text-[11px] tracking-wide text-zinc-600 sm:inline">
-            gpt-oss swarm · every claim cited
-          </span>
-          <span className="flex-1" />
+        <div className="flex items-center justify-end px-3 pb-3">
           <button
             type="submit"
             disabled={loading || !value.trim()}

@@ -6,7 +6,6 @@ import QueryBox from "../components/QueryBox";
 import ReportStream from "../components/ReportStream";
 import ResearchProgress, { type LiveState } from "../components/ResearchProgress";
 import SourcesPanel from "../components/SourcesPanel";
-import TraceView, { type TraceState } from "../components/TraceView";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { autoTitle, createChat, type ChatMessage } from "../lib/api";
@@ -19,16 +18,6 @@ const EXAMPLES = [
   "What are the best open-source deep-research agent frameworks in 2026?",
   "Groq LPU vs GPU inference for agentic workloads: tradeoffs?",
 ];
-
-const emptyTrace = (): TraceState => ({
-  route: null,
-  plan: [],
-  progress: {},
-  supported: 0,
-  dropped: 0,
-  synth: null,
-  latencyMs: null,
-});
 
 const emptyLive = (): LiveState => ({
   plan: [],
@@ -55,11 +44,25 @@ export default function Home() {
   const [running, setRunning] = useState(false);
   const [live, setLive] = useState<LiveState>(emptyLive);
   const [liveTokens, setLiveTokens] = useState("");
-  const [liveTrace, setLiveTrace] = useState<TraceState>(emptyTrace);
+  const [tokensActive, setTokensActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [highlightUrl, setHighlightUrl] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const tokenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
+
+  const pokeTokensActive = useCallback(() => {
+    setTokensActive(true);
+    if (tokenTimer.current) clearTimeout(tokenTimer.current);
+    // Caret follows real token flow: stalls longer than this hide it,
+    // so a finished-or-cut stream never blinks forever.
+    tokenTimer.current = setTimeout(() => setTokensActive(false), 2500);
+  }, []);
+
+  const stopTokensActive = useCallback(() => {
+    if (tokenTimer.current) clearTimeout(tokenTimer.current);
+    setTokensActive(false);
+  }, []);
 
   // Follow the stream while running.
   useEffect(() => {
@@ -69,14 +72,14 @@ export default function Home() {
 
   const newChat = useCallback(() => {
     abortRef.current?.abort();
+    stopTokensActive();
     setRunning(false);
     setChatId(null);
     setMessages([]);
     setLive(emptyLive());
     setLiveTokens("");
-    setLiveTrace(emptyTrace());
     setError(null);
-  }, []);
+  }, [stopTokensActive]);
 
   const ask = useCallback(
     async (q: string) => {
@@ -88,7 +91,7 @@ export default function Home() {
       setError(null);
       setLive(emptyLive());
       setLiveTokens("");
-      setLiveTrace(emptyTrace());
+      stopTokensActive();
       setRunning(true);
       setMessages((prev) => [
         ...prev,
@@ -123,20 +126,12 @@ export default function Home() {
             switch (e.event) {
               case "plan":
                 setLive((l) => ({ ...l, plan: e.data.sub_questions }));
-                setLiveTrace((t) => ({ ...t, route: "research", plan: e.data.sub_questions }));
                 break;
               case "search_progress":
                 setLive((l) => ({
                   ...l,
                   progress: {
                     ...l.progress,
-                    [e.data.sub_q_id]: { urls: e.data.urls, claims: e.data.claims },
-                  },
-                }));
-                setLiveTrace((t) => ({
-                  ...t,
-                  progress: {
-                    ...t.progress,
                     [e.data.sub_q_id]: { urls: e.data.urls, claims: e.data.claims },
                   },
                 }));
@@ -147,19 +142,16 @@ export default function Home() {
                   supported: l.supported + (e.data.verdict === "supported" ? 1 : 0),
                   dropped: l.dropped + (e.data.verdict === "supported" ? 0 : 1),
                 }));
-                setLiveTrace((t) => ({
-                  ...t,
-                  supported: t.supported + (e.data.verdict === "supported" ? 1 : 0),
-                  dropped: t.dropped + (e.data.verdict === "supported" ? 0 : 1),
-                }));
                 break;
               case "token":
                 setLiveTokens((prev) => prev + e.data.delta);
                 setLive((l) => ({ ...l, tokens: l.tokens + e.data.delta.length }));
+                pokeTokensActive();
                 break;
               case "done": {
                 const d = e.data;
                 setRunning(false);
+                stopTokensActive();
                 if (d.reason === "not_research") {
                   setMessages((prev) => [
                     ...prev,
@@ -187,26 +179,20 @@ export default function Home() {
                   },
                 ]);
                 setLiveTokens("");
-                setLiveTrace((t) => ({
-                  ...t,
-                  synth: d.synth
-                    ? { coverage: d.synth.coverage, seconds: d.synth.seconds }
-                    : null,
-                  latencyMs: d.latency_ms,
-                }));
                 break;
               }
             }
           },
           onError: (err) => {
             setRunning(false);
+            stopTokensActive();
             setError(err.message);
           },
         },
         { chatId: threadId, signal: ctrl.signal },
       );
     },
-    [chatId],
+    [chatId, pokeTokensActive, stopTokensActive],
   );
 
   const showEmpty = messages.length === 0 && !running && !error;
@@ -277,7 +263,7 @@ export default function Home() {
         <>
           <div
             ref={threadRef}
-            className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-6"
+            className="no-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-6"
             aria-live="polite"
           >
             {messages.map((m) =>
@@ -331,7 +317,7 @@ export default function Home() {
                     </p>
                     <ReportStream
                       markdown={liveTokens}
-                      streaming
+                      streaming={tokensActive}
                       sources={[]}
                       onHoverSource={setHighlightUrl}
                     />
@@ -342,14 +328,6 @@ export default function Home() {
                     <p className="text-sm text-zinc-500">Gathering evidence…</p>
                   </>
                 )}
-                <details className="mt-4">
-                  <summary className="cursor-pointer text-[13px] font-medium text-zinc-500 transition-colors duration-150 ease-out hover:text-zinc-300">
-                    Run trace
-                  </summary>
-                  <div className="mt-3 rounded-xl bg-white/[0.02] p-4 outline-1 outline-white/[0.07]">
-                    <TraceView trace={liveTrace} running={running} />
-                  </div>
-                </details>
               </div>
             )}
 

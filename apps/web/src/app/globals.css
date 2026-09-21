@@ -47,6 +47,15 @@ body {
   animation: rise-in 400ms ease-out forwards;
 }
 
+/* Scrollable thread without visible scrollbars (all input is scroll/touch). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stagger {
     opacity: 1;
