@@ -10,7 +10,6 @@ import SourcesPanel from "../components/SourcesPanel";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { autoTitle, createChat, type ChatMessage } from "../lib/api";
-import type { Citation } from "../lib/events";
 import { streamResearch } from "../lib/sse";
 
 const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
@@ -29,9 +28,6 @@ const emptyLive = (): LiveState => ({
   tokens: 0,
 });
 
-const EMPTY_SET = new Set<string>();
-const MAX_LIVE_SOURCES = 15;
-
 function contestedOf(graph: ChatMessage["graph"]): Set<string> {
   try {
     const claims =
@@ -49,12 +45,14 @@ export default function Home() {
   const [running, setRunning] = useState(false);
   const [live, setLive] = useState<LiveState>(emptyLive);
   const [liveTokens, setLiveTokens] = useState("");
-  const [liveSources, setLiveSources] = useState<Citation[]>([]);
   const [tokensActive, setTokensActive] = useState(false);
+  const [stalled, setStalled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [highlightUrl, setHighlightUrl] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const tokenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastEventAt = useRef<number>(0);
+  const stallTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
 
   const pokeTokensActive = useCallback(() => {
@@ -70,11 +68,36 @@ export default function Home() {
     setTokensActive(false);
   }, []);
 
+  const stopStallWatch = useCallback(() => {
+    if (stallTimer.current) clearInterval(stallTimer.current);
+    stallTimer.current = null;
+    setStalled(false);
+  }, []);
+
+  const startStallWatch = useCallback(() => {
+    lastEventAt.current = Date.now();
+    setStalled(false);
+    if (stallTimer.current) clearInterval(stallTimer.current);
+    // Silence longer than this means free-tier queues, not progress.
+    stallTimer.current = setInterval(() => {
+      if (Date.now() - lastEventAt.current > 25000) setStalled(true);
+    }, 5000);
+  }, []);
+
   // Follow the stream while running.
   useEffect(() => {
     const el = threadRef.current;
     if (el && running) el.scrollTop = el.scrollHeight;
-  }, [running, liveTokens, liveSources.length, messages.length]);
+  }, [running, liveTokens, messages.length]);
+
+  // Never leak the watchdog.
+  useEffect(
+    () => () => {
+      if (stallTimer.current) clearInterval(stallTimer.current);
+      if (tokenTimer.current) clearTimeout(tokenTimer.current);
+    },
+    [],
+  );
 
   const newChat = useCallback(() => {
     abortRef.current?.abort();
@@ -84,9 +107,9 @@ export default function Home() {
     setMessages([]);
     setLive(emptyLive());
     setLiveTokens("");
-    setLiveSources([]);
     setError(null);
-  }, [stopTokensActive]);
+    stopStallWatch();
+  }, [stopTokensActive, stopStallWatch]);
 
   const ask = useCallback(
     async (q: string) => {
@@ -98,8 +121,8 @@ export default function Home() {
       setError(null);
       setLive(emptyLive());
       setLiveTokens("");
-      setLiveSources([]);
       stopTokensActive();
+      startStallWatch();
       setRunning(true);
       setMessages((prev) => [
         ...prev,
@@ -131,25 +154,13 @@ export default function Home() {
         q,
         {
           onEvent: (e) => {
+            lastEventAt.current = Date.now();
+            setStalled(false);
             switch (e.event) {
               case "plan":
                 setLive((l) => ({ ...l, plan: e.data.sub_questions }));
                 break;
               case "search_progress": {
-                const incoming: Citation[] =
-                  e.data.sources ??
-                  e.data.urls.map((url: string) => ({ url, title: "" }));
-                setLiveSources((prev) => {
-                  const seen = new Set(prev.map((s) => s.url));
-                  const merged = [...prev];
-                  for (const s of incoming) {
-                    if (!seen.has(s.url) && merged.length < MAX_LIVE_SOURCES) {
-                      seen.add(s.url);
-                      merged.push({ url: s.url, title: s.title || s.url });
-                    }
-                  }
-                  return merged;
-                });
                 setLive((l) => ({
                   ...l,
                   progress: {
@@ -175,6 +186,7 @@ export default function Home() {
                 const d = e.data;
                 setRunning(false);
                 stopTokensActive();
+                stopStallWatch();
                 if (d.reason === "not_research") {
                   setMessages((prev) => [
                     ...prev,
@@ -209,13 +221,14 @@ export default function Home() {
           onError: (err) => {
             setRunning(false);
             stopTokensActive();
+            stopStallWatch();
             setError(err.message);
           },
         },
         { chatId: threadId, signal: ctrl.signal },
       );
     },
-    [chatId, pokeTokensActive, stopTokensActive],
+    [chatId, pokeTokensActive, stopTokensActive, startStallWatch, stopStallWatch],
   );
 
   const showEmpty = messages.length === 0 && !running && !error;
@@ -331,6 +344,12 @@ export default function Home() {
 
             {running && (
               <div className="min-w-0" aria-live="polite">
+                {stalled && (
+                  <p className="mb-3 rounded-xl bg-amber-400/[0.07] p-3 text-[13px] leading-5 text-amber-200/90 outline-1 outline-amber-400/20">
+                    Still working — free-tier queues can stall for a bit. It will
+                    resume on its own; only retry if this persists for minutes.
+                  </p>
+                )}
                 {tokensStarted ? (
                   <>
                     <p className="mb-3 flex items-center gap-2 text-[13px] text-zinc-400">
@@ -352,15 +371,6 @@ export default function Home() {
                     <ResearchProgress live={live} running={running} />
                     <p className="text-sm text-zinc-500">Gathering evidence…</p>
                   </>
-                )}
-                {liveSources.length > 0 && (
-                  <div className="mt-4">
-                    <SourcesPanel
-                      sources={liveSources}
-                      contestedUrls={EMPTY_SET}
-                      highlightUrl={highlightUrl}
-                    />
-                  </div>
                 )}
               </div>
             )}
