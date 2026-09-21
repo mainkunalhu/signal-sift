@@ -13,6 +13,136 @@ from pgvector.asyncpg import register_vector
 from config import settings
 
 
+async def _connect():
+    conn = await asyncpg.connect(settings.database_url, timeout=10)
+    await register_vector(conn)
+    return conn
+
+
+def auto_title(query: str) -> str:
+    title = " ".join((query or "").split())
+    return (title[:57] + "…") if len(title) > 60 else (title or "New research")
+
+
+async def create_chat(title: str | None = None) -> dict | None:
+    try:
+        conn = await _connect()
+        try:
+            row = await conn.fetchrow(
+                "insert into chats (title) values ($1) returning id, title",
+                title or "New research",
+            )
+            return {"id": str(row["id"]), "title": row["title"]}
+        finally:
+            await conn.close()
+    except Exception:
+        return None
+
+
+async def list_chats(limit: int = 50) -> list[dict]:
+    try:
+        conn = await _connect()
+        try:
+            rows = await conn.fetch(
+                """select c.id, c.title, c.updated_at, count(m.id) as messages
+                   from chats c left join messages m on m.chat_id = c.id
+                   group by c.id order by c.updated_at desc limit $1""",
+                limit,
+            )
+            return [
+                {
+                    "id": str(r["id"]),
+                    "title": r["title"],
+                    "updated_at": r["updated_at"].isoformat(),
+                    "messages": r["messages"],
+                }
+                for r in rows
+            ]
+        finally:
+            await conn.close()
+    except Exception:
+        return []
+
+
+async def get_chat(chat_id: str) -> dict | None:
+    try:
+        conn = await _connect()
+        try:
+            chat = await conn.fetchrow("select id, title from chats where id = $1", chat_id)
+            if chat is None:
+                return None
+            msgs = await conn.fetch(
+                """select id, role, content, citations, graph, latency_ms
+                   from messages where chat_id = $1 order by created_at""",
+                chat_id,
+            )
+            return {
+                "id": str(chat["id"]),
+                "title": chat["title"],
+                "messages": [
+                    {
+                        "id": str(m["id"]),
+                        "role": m["role"],
+                        "content": m["content"],
+                        "citations": json.loads(m["citations"])
+                        if isinstance(m["citations"], str)
+                        else m["citations"],
+                        "graph": json.loads(m["graph"])
+                        if isinstance(m["graph"], str)
+                        else m["graph"],
+                        "latency_ms": m["latency_ms"],
+                    }
+                    for m in msgs
+                ],
+            }
+        finally:
+            await conn.close()
+    except Exception:
+        return None
+
+
+async def delete_chat(chat_id: str) -> bool:
+    try:
+        conn = await _connect()
+        try:
+            status = await conn.execute("delete from chats where id = $1", chat_id)
+            return status != "DELETE 0"
+        finally:
+            await conn.close()
+    except Exception:
+        return False
+
+
+async def save_message(
+    chat_id: str,
+    role: str,
+    content: str,
+    *,
+    citations: list | None = None,
+    graph: dict | None = None,
+    latency_ms: int = 0,
+) -> str | None:
+    try:
+        conn = await _connect()
+        try:
+            row = await conn.fetchrow(
+                """insert into messages (chat_id, role, content, citations, graph, latency_ms)
+                   values ($1, $2, $3, $4, $5, $6) returning id""",
+                chat_id,
+                role,
+                content,
+                json.dumps(citations or []),
+                json.dumps(graph or {}),
+                latency_ms,
+            )
+            await conn.execute("update chats set updated_at = now() where id = $1", chat_id)
+            return str(row["id"])
+        finally:
+            await conn.close()
+    except Exception:
+        return None
+
+
 async def save_run(
     *,
     query: str,

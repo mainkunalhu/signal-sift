@@ -8,6 +8,7 @@ import type { SseEvent } from "./events";
 
 export interface StreamOptions {
   maxSubquestions?: number;
+  chatId?: string | null;
   signal?: AbortSignal;
 }
 
@@ -27,6 +28,7 @@ export async function streamResearch(
       body: JSON.stringify({
         query,
         max_subquestions: opts.maxSubquestions ?? 5,
+        chat_id: opts.chatId ?? null,
       }),
       signal: opts.signal,
     });

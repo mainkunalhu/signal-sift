@@ -19,7 +19,7 @@ from agents.llm import GroqClient
 from agents.researcher import Researcher
 from agents.synthesizer import SynthesisResult, Synthesizer
 from config import settings
-from db.store import save_run
+from db.store import auto_title, create_chat, get_chat, save_message, save_run
 from tools.embed import embed_texts
 from tools.scrape import content_hash as text_hash
 
@@ -30,6 +30,42 @@ class ResearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     max_subquestions: int = Field(default=6, ge=1, le=8)
     max_sources: int = Field(default=15, ge=1, le=30)
+    chat_id: str | None = Field(default=None, description="Thread to append to; created if absent")
+
+
+async def _ensure_chat(req: ResearchRequest) -> str | None:
+    """Return a chat id to append to (create with auto-title if needed)."""
+    try:
+        if req.chat_id and await get_chat(req.chat_id) is not None:
+            return req.chat_id
+        chat = await create_chat(auto_title(req.query))
+        return chat["id"] if chat else None
+    except Exception:
+        return None
+
+
+async def _save_user_message(chat_id: str | None, query: str) -> None:
+    if chat_id:
+        await save_message(chat_id, "user", query)
+
+
+async def _save_assistant_message(
+    chat_id: str | None,
+    report_md: str,
+    citations: list,
+    graph_state: dict,
+    latency_ms: int,
+) -> str | None:
+    if not chat_id:
+        return None
+    return await save_message(
+        chat_id,
+        "assistant",
+        report_md,
+        citations=citations,
+        graph=graph_state,
+        latency_ms=latency_ms,
+    )
 
 
 def _event(name: str, payload: dict) -> dict:
@@ -76,6 +112,8 @@ async def research(req: ResearchRequest):
         t0 = time.perf_counter()
         results: dict = {}
         graph_state: dict = {}
+        chat_id = await _ensure_chat(req)
+        await _save_user_message(chat_id, req.query)
         async for chunk in graph.astream(
             {"query": req.query},
             config={"configurable": {"thread_id": thread_id}},
@@ -84,7 +122,13 @@ async def research(req: ResearchRequest):
             if "router" in chunk:
                 route = chunk["router"].get("route", {})
                 if route.get("route") != "research":
-                    yield _event("done", {"route": route, "reason": "not_research"})
+                    await _save_assistant_message(
+                        chat_id, "", [], {}, int((time.perf_counter() - t0) * 1000)
+                    )
+                    yield _event(
+                        "done",
+                        {"route": route, "reason": "not_research", "chat_id": chat_id},
+                    )
                     return
             elif "planner" in chunk:
                 yield _event("plan", {"sub_questions": chunk["planner"].get("sub_questions", [])})
@@ -139,14 +183,21 @@ async def research(req: ResearchRequest):
         synthesis = await synth_task
 
         query_id = await _persist_best_effort(req, public_results, graph_state)
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        report_md = synthesis.report_md if synthesis else ""
+        message_id = await _save_assistant_message(
+            chat_id, report_md, citations, graph_state, latency_ms
+        )
         yield _event(
             "done",
             {
                 "query_id": query_id,
+                "chat_id": chat_id,
+                "message_id": message_id,
                 "results": public_results,
                 "citations": citations,
                 "citation_graph": graph_state,
-                "report_md": synthesis.report_md if synthesis else "",
+                "report_md": report_md,
                 "synth": (
                     {
                         "repaired": synthesis.repaired,

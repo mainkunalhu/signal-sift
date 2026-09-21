@@ -54,6 +54,10 @@ export type SseEvent =
       event: "done";
       data: {
         query_id: string | null;
+        chat_id: string | null;
+        message_id: string | null;
+        route?: { route: string };
+        reason?: string;
         report_md: string;
         citations: Citation[];
         citation_graph: CitationGraph;

@@ -47,9 +47,7 @@ def percentile(values: list[float], pct: float) -> float:
     return ordered[rank]
 
 
-def load_tasks(
-    category: str | None, limit: int | None, ids: str | None
-) -> list[dict]:
+def load_tasks(category: str | None, limit: int | None, ids: str | None) -> list[dict]:
     tasks = yaml.safe_load((HERE / "tasks.yaml").read_text())
     if category:
         tasks = [t for t in tasks if t["category"] == category]
@@ -179,8 +177,9 @@ async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--category", type=str, default=None)
-    parser.add_argument("--ids", type=str, default=None,
-                        help="comma-separated task ids for targeted re-runs")
+    parser.add_argument(
+        "--ids", type=str, default=None, help="comma-separated task ids for targeted re-runs"
+    )
     parser.add_argument("--max-subquestions", type=int, default=4)
     parser.add_argument("--out", type=str, default=str(DEFAULT_OUT))
     args = parser.parse_args()
