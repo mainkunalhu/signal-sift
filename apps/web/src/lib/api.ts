@@ -2,6 +2,8 @@
 
 /** REST helpers for chat threads (through the gateway). */
 
+import type { CitationGraph } from "./events";
+
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:3001";
 
 export interface ChatSummary {
@@ -16,7 +18,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   citations: { url: string; title: string }[];
-  graph: Record<string, unknown> | null;
+  graph: CitationGraph | null;
   latency_ms: number;
 }
 

@@ -1,7 +1,9 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { memo, useState } from "react";
 import type { Citation } from "../lib/events";
+import { Badge } from "./ui/badge";
 
 function domainOf(url: string): string {
   try {
@@ -15,7 +17,6 @@ function Favicon({ domain }: { domain: string }) {
   const [hidden, setHidden] = useState(false);
   if (hidden) return null;
   return (
-    // 1px pure-white low-opacity outline per image-outline rule (dark UI).
     <img
       src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
       alt=""
@@ -41,19 +42,19 @@ function SourcesPanel({
   if (sources.length === 0) return null;
   return (
     <section aria-label="Sources" className="min-w-0">
-      <h2 className="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
+      <h2 className="mb-2.5 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
         Sources · {sources.length}
       </h2>
-      <ol className="flex flex-col gap-2">
+      <ul className="grid gap-2 sm:grid-cols-2">
         {sources.map((src, i) => {
           const active = highlightUrl === src.url;
           return (
-            <li key={`${src.url}-${i}`}>
+            <li key={`${src.url}-${i}`} className="min-w-0">
               <a
                 href={src.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`group flex items-start gap-3 rounded-xl bg-white/[0.03] p-2.5 outline-1 transition-[background-color,outline-color] duration-150 ease-out hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-white/60 active:scale-[0.96] ${
+                className={`group flex items-start gap-2.5 rounded-xl bg-white/[0.03] p-3 outline-1 transition-[background-color,outline-color] duration-150 ease-out hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-white/60 active:scale-[0.96] ${
                   active ? "outline-white/30" : "outline-white/[0.07]"
                 }`}
               >
@@ -67,21 +68,22 @@ function SourcesPanel({
                   <span className="block truncate text-[13px] leading-5 font-medium text-zinc-200">
                     {src.title || domainOf(src.url)}
                   </span>
-                  <span className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500">
+                  <span className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
                     <Favicon domain={domainOf(src.url)} />
-                    <span className="truncate">{domainOf(src.url)}</span>
-                    {contestedUrls.has(src.url) && (
-                      <span className="shrink-0 rounded-full bg-amber-400/10 px-1.5 py-px text-[10px] font-medium text-amber-300">
-                        contested
-                      </span>
-                    )}
+                    <span className="min-w-0 flex-1 truncate">{domainOf(src.url)}</span>
+                    {contestedUrls.has(src.url) && <Badge variant="amber">contested</Badge>}
+                    <ExternalLink
+                      aria-hidden
+                      strokeWidth={2}
+                      className="h-3 w-3 shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-60"
+                    />
                   </span>
                 </span>
               </a>
             </li>
           );
         })}
-      </ol>
+      </ul>
     </section>
   );
 }

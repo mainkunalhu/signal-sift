@@ -1,16 +1,18 @@
 "use client";
 
+import { ArrowUp, Loader2 } from "lucide-react";
 import { useState } from "react";
-
-const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
-const EASE = "cubic-bezier(0.2, 0, 0, 1)";
+import { cn, EASE, PRESS } from "../lib/utils";
+import { Badge } from "./ui/badge";
 
 export default function QueryBox({
   loading,
   onAsk,
+  autoFocus,
 }: {
   loading: boolean;
   onAsk: (query: string) => void;
+  autoFocus?: boolean;
 }) {
   const [value, setValue] = useState("");
 
@@ -20,12 +22,15 @@ export default function QueryBox({
       onSubmit={(e) => {
         e.preventDefault();
         const q = value.trim();
-        if (q && !loading) onAsk(q);
+        if (q && !loading) {
+          setValue("");
+          onAsk(q);
+        }
       }}
     >
       <div
-        className="flex items-center gap-2 rounded-2xl bg-white/[0.04] p-2 pl-4 outline-1 outline-white/10 transition-[outline-color,background-color] duration-150 focus-within:bg-white/[0.06] focus-within:outline-white/25"
-        style={{ transitionTimingFunction: EASE }}
+        className="rounded-2xl bg-white/[0.04] outline-1 outline-white/10 transition-[outline-color,background-color] duration-150 focus-within:bg-white/[0.06] focus-within:outline-white/25"
+        style={EASE}
       >
         <input
           value={value}
@@ -33,43 +38,44 @@ export default function QueryBox({
           placeholder="Ask a hard question…"
           aria-label="Research question"
           disabled={loading}
-          className="min-h-11 flex-1 bg-transparent text-[15px] text-zinc-100 outline-none placeholder:text-zinc-500 disabled:opacity-60"
+          autoFocus={autoFocus}
+          className="min-h-12 w-full bg-transparent px-4 pt-3 text-[15px] text-zinc-100 outline-none placeholder:text-zinc-500 disabled:opacity-60"
         />
-        <button
-          type="submit"
-          disabled={loading || !value.trim()}
-          aria-label={loading ? "Researching" : "Start research"}
-          className={`relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-zinc-100 text-zinc-900 outline-none transition-[opacity,background-color,scale] duration-150 hover:bg-white focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-40 ${PRESS}`}
-        >
-          {/* Idle icon */}
-          <svg
-            aria-hidden
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            className={`col-start-1 row-start-1 h-5 w-5 transition-[opacity,scale,filter] duration-200 ${
-              loading ? "scale-[0.25] opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0"
-            }`}
-            style={{ transitionTimingFunction: EASE }}
+        <div className="flex items-center gap-2 px-2.5 pb-2.5">
+          <Badge variant="default" className="ml-1.5 hidden sm:inline-flex">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            gpt-oss swarm
+          </Badge>
+          <span className="flex-1" />
+          <button
+            type="submit"
+            disabled={loading || !value.trim()}
+            aria-label={loading ? "Researching" : "Start research"}
+            className={cn(
+              "relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-zinc-100 text-zinc-900 outline-none transition-[opacity,background-color,scale] duration-150 hover:bg-white focus-visible:outline-2 focus-visible:outline-white/60 disabled:cursor-not-allowed disabled:opacity-40",
+              PRESS,
+            )}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
-          </svg>
-          {/* Loading icon (stays mounted for the cross-fade) */}
-          <svg
-            aria-hidden
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            className={`col-start-1 row-start-1 h-5 w-5 animate-spin ${
-              loading ? "scale-100 opacity-100 blur-0" : "scale-[0.25] opacity-0 blur-[4px]"
-            } transition-[opacity,scale,filter] duration-200`}
-            style={{ transitionTimingFunction: EASE }}
-          >
-            <path strokeLinecap="round" d="M12 3a9 9 0 1 0 9 9" />
-          </svg>
-        </button>
+            <ArrowUp
+              aria-hidden
+              strokeWidth={2.25}
+              className={cn(
+                "col-start-1 row-start-1 h-[18px] w-[18px] transition-[opacity,scale,filter] duration-200",
+                loading ? "scale-[0.25] opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0",
+              )}
+              style={EASE}
+            />
+            <Loader2
+              aria-hidden
+              strokeWidth={2.25}
+              className={cn(
+                "col-start-1 row-start-1 h-[18px] w-[18px] animate-spin transition-[opacity,scale,filter] duration-200",
+                loading ? "scale-100 opacity-100 blur-0" : "scale-[0.25] opacity-0 blur-[4px]",
+              )}
+              style={EASE}
+            />
+          </button>
+        </div>
       </div>
     </form>
   );
