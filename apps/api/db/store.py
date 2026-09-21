@@ -19,6 +19,20 @@ async def _connect():
     return conn
 
 
+async def warmup() -> bool:
+    """One cheap query at boot: wakes Neon's suspended compute so the first
+    real request never pays the cold-pooler penalty (5–15s of dead air)."""
+    try:
+        conn = await asyncpg.connect(settings.database_url, timeout=15)
+        try:
+            await conn.fetchval("select 1")
+            return True
+        finally:
+            await conn.close()
+    except Exception:
+        return False
+
+
 def auto_title(query: str) -> str:
     title = " ".join((query or "").split())
     return (title[:57] + "…") if len(title) > 60 else (title or "New research")

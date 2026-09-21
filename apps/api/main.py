@@ -13,11 +13,16 @@ from routes.research import router as research_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_tracing()
-    if os.getenv("SKIP_WARMUP") != "1":
-        from tools.embed import warmup
+    import asyncio
 
-        await warmup()  # preload bge-small so first request never pays model load
+    setup_tracing()
+    # Warm both slow starters concurrently: embedding model + Neon pooler.
+    # SKIP_WARMUP=1 skips both for instant boots (first request pays instead).
+    if os.getenv("SKIP_WARMUP") != "1":
+        from db.store import warmup as warm_db
+        from tools.embed import warmup as warm_embed
+
+        await asyncio.gather(warm_db(), warm_embed())
     yield
 
 

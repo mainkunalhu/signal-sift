@@ -58,9 +58,9 @@ export default function Home() {
   const pokeTokensActive = useCallback(() => {
     setTokensActive(true);
     if (tokenTimer.current) clearTimeout(tokenTimer.current);
-    // Caret follows real token flow: stalls longer than this hide it,
-    // so a finished-or-cut stream never blinks forever.
-    tokenTimer.current = setTimeout(() => setTokensActive(false), 2500);
+    // Caret follows real token flow: silence longer than this hides it,
+    // so a finished-or-cut stream never blinks.
+    tokenTimer.current = setTimeout(() => setTokensActive(false), 1500);
   }, []);
 
   const stopTokensActive = useCallback(() => {
@@ -320,23 +320,18 @@ export default function Home() {
                     onHoverSource={setHighlightUrl}
                   />
                   {m.citations.length > 0 && (
-                    <details className="group mt-4">
-                      <summary className="cursor-pointer text-[13px] font-medium text-zinc-400 transition-colors duration-150 ease-out hover:text-zinc-200">
-                        {m.citations.length} sources
-                        {typeof m.latency_ms === "number" && m.latency_ms > 0 && (
-                          <span className="ml-2 text-zinc-600 tabular-nums">
-                            {(m.latency_ms / 1000).toFixed(1)}s
-                          </span>
-                        )}
-                      </summary>
-                      <div className="mt-3">
-                        <SourcesPanel
-                          sources={m.citations}
-                          contestedUrls={contestedOf(m.graph)}
-                          highlightUrl={highlightUrl}
-                        />
-                      </div>
-                    </details>
+                    <div className="mt-5">
+                      <SourcesPanel
+                        sources={m.citations}
+                        contestedUrls={contestedOf(m.graph)}
+                        highlightUrl={highlightUrl}
+                      />
+                      {typeof m.latency_ms === "number" && m.latency_ms > 0 && (
+                        <p className="mt-2 text-[11px] text-zinc-600 tabular-nums">
+                          {(m.latency_ms / 1000).toFixed(1)}s end-to-end
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               ),
@@ -353,7 +348,9 @@ export default function Home() {
                 {tokensStarted ? (
                   <>
                     <p className="mb-3 flex items-center gap-2 text-[13px] text-zinc-400">
-                      <Badge variant="sky">writing report</Badge>
+                      <Badge variant={tokensActive ? "sky" : "amber"}>
+                        {tokensActive ? "writing report" : "checking citations"}
+                      </Badge>
                       <span className="tabular-nums text-zinc-500">
                         {Object.values(live.progress).reduce((a, p) => a + p.urls.length, 0)}{" "}
                         sources · {live.supported} claims kept
