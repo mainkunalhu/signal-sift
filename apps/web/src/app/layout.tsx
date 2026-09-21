@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "SignalSift — Groq Deep-Research Swarm",
   description:
     "Ask one hard question. Parallel Groq agents research, verify, and return a cited report.",
+  icons: { icon: "/logo.png", apple: "/logo.png" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

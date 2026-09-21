@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, Sparkles } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import QueryBox from "../components/QueryBox";
 import ReportStream from "../components/ReportStream";
@@ -227,12 +228,14 @@ export default function Home() {
       style={{ height: "100dvh" }}
     >
       <header className="flex items-center gap-2 py-3">
-        <span
-          aria-hidden
-          className="grid h-7 w-7 place-items-center rounded-lg bg-zinc-100 text-[13px] font-bold text-zinc-900"
-        >
-          S
-        </span>
+        <Image
+          src="/logo.png"
+          alt="SignalSift logo"
+          width={28}
+          height={28}
+          priority
+          className="h-7 w-7 rounded-lg outline-1 outline-white/10"
+        />
         <span className="text-sm font-semibold tracking-tight">SignalSift</span>
         <span className="ml-auto" />
         <Button variant="ghost" size="sm" onClick={newChat} aria-label="Start a new chat">
