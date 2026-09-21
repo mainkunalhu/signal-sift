@@ -1,0 +1,128 @@
+# SignalSift eval set: 30 research tasks across 4 categories.
+# Fields: id, category (factual|comparison|contested|longtail), query, notes.
+# Rubric: faithfulness (held-out 120b judge over supported claims),
+# citation precision (paragraph coverage), p50/p95 latency.
+
+- id: f01
+  category: factual
+  query: What throughput and recall does pgvector achieve on ANN benchmarks in 2026?
+  notes: numeric claims, easy to verify
+- id: f02
+  category: factual
+  query: What is Groq's LPU architecture and how does it differ from GPUs for LLM inference?
+  notes: technical explainer
+- id: f03
+  category: factual
+  query: How does Qdrant's HNSW implementation handle filtering at scale?
+  notes: specific mechanism
+- id: f04
+  category: factual
+  query: What are the pricing tiers for managed vector databases (Pinecone, Qdrant Cloud, Weaviate Cloud) in 2026?
+  notes: fast-moving facts, tests freshness
+- id: f05
+  category: factual
+  query: What context window and rate limits does Groq offer on its free tier in 2026?
+  notes: provider facts
+- id: f06
+  category: factual
+  query: How does LangGraph's Send API enable parallel fan-out in multi-agent systems?
+  notes: framework mechanic, stable facts
+- id: f07
+  category: factual
+  query: What is pg_trgm and how is it used alongside pgvector for hybrid search?
+  notes: Postgres extension facts
+- id: f08
+  category: factual
+  query: Which embedding models under 500MB score best on MTEB retrieval in 2026?
+  notes: benchmark facts
+- id: f09
+  category: factual
+  query: How does SearXNG aggregate results and what output formats does its API support?
+  notes: open-source tool facts
+- id: f10
+  category: factual
+  query: What is Arize Phoenix and how does OpenTelemetry OTLP ingestion work with it?
+  notes: observability facts
+
+- id: c01
+  category: comparison
+  query: pgvector vs Qdrant for small teams in 2026 — which should you choose?
+  notes: flagship comparison
+- id: c02
+  category: comparison
+  query: Groq vs Cerebras for low-latency LLM inference in agentic workloads?
+  notes: hardware comparison
+- id: c03
+  category: comparison
+  query: LangGraph vs CrewAI vs AutoGen for building deep-research agents?
+  notes: framework comparison
+- id: c04
+  category: comparison
+  query: Pinecone vs Weaviate vs Milvus on cost and operational overhead?
+  notes: managed vs self-hosted
+- id: c05
+  category: comparison
+  query: bge-small vs e5-small vs MiniLM embeddings for retrieval quality and speed?
+  notes: model comparison
+- id: c06
+  category: comparison
+  query: Tavily vs SearXNG vs Brave Search API for agent search infrastructure?
+  notes: search API comparison
+- id: c07
+  category: comparison
+  query: FastAPI SSE vs websockets for streaming LLM responses to a web UI?
+  notes: engineering tradeoff
+- id: c08
+  category: comparison
+  query: Neon vs Supabase for Postgres with pgvector in 2026?
+  notes: platform comparison
+- id: c09
+  category: comparison
+  query: gpt-oss-120b vs Llama 3.3 70b for agentic tool-calling quality?
+  notes: model comparison, tests recency
+- id: c10
+  category: comparison
+  query: Hono vs Express as an API gateway in front of Python backends?
+  notes: gateway tradeoff
+
+- id: x01
+  category: contested
+  query: Is RAG still necessary now that long-context models can fit whole corpora?
+  notes: genuine disagreement in the field
+- id: x02
+  category: contested
+  query: Do open-source LLM agents match proprietary ones for deep research quality?
+  notes: contested benchmarks
+- id: x03
+  category: contested
+  query: Are vector databases necessary, or is Postgres with pgvector enough for most teams?
+  notes: vendor vs practitioner disagreement
+- id: x04
+  category: contested
+  query: Does chain-of-thought prompting reliably improve factual accuracy or mostly verbosity?
+  notes: contested research finding
+- id: x05
+  category: contested
+  query: Will specialised AI chips (LPU, WSE) displace GPUs for inference by 2027?
+  notes: forward-looking disagreement
+
+- id: l01
+  category: longtail
+  query: How do you run SearXNG with Redis-backed rate limiting behind Caddy on a Raspberry Pi?
+  notes: obscure self-hosting stack
+- id: l02
+  category: longtail
+  query: What pgvector ivfflat lists/probes settings work for 200k-row tables with heavy updates?
+  notes: niche tuning question
+- id: l03
+  category: longtail
+  query: How to stream Server-Sent Events through a Hono gateway on Bun with idle timeouts over 60s?
+  notes: meta question, thin sources
+- id: l04
+  category: longtail
+  query: Which small-town Indian SaaS teams documented their switch from Pinecone to pgvector?
+  notes: long-tail case studies, may have few sources
+- id: l05
+  category: longtail
+  query: How does trafilatura compare to readability-lxml for extracting recipe blogs with paywalls?
+  notes: niche tool comparison

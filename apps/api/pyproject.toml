@@ -1,0 +1,49 @@
+[project]
+name = "signalsift-api"
+version = "0.1.0"
+description = "SignalSift Groq Deep-Research Swarm API"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sse-starlette>=2.1",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "langgraph>=0.2",
+  "langchain-core>=0.3",
+  "groq>=0.9",
+  "httpx>=0.27",
+  "trafilatura>=1.8",
+  "beautifulsoup4>=4.12",
+  "pgvector>=0.3",
+  "asyncpg>=0.29",
+  "sqlalchemy[asyncio]>=2.0",
+  "numpy>=1.26",
+  "python-dotenv>=1.0",
+  "arize-phoenix>=7.0",
+  "openinference-instrumentation-langchain>=0.1",
+  "sentence-transformers>=6.1.0",
+  "pyyaml>=6.0.3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.5",
+  "httpx>=0.27",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# Intentional: scrapers/LLM calls degrade gracefully by design (free-tier
+# flakiness must never crash a run), and optional instrumentation is best-effort.
+extend-ignore = ["BLE001", "S110", "S112"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

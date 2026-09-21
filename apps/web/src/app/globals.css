@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgb(255 255 255 / 0.18);
+}
+
+/* Staged hero entrance: opacity + 12px rise + 4px blur, ~100ms stagger.
+ * Runs once on mount; reduced-motion users get the final state instantly. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.stagger {
+  opacity: 0;
+  animation: rise-in 400ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger {
+    opacity: 1;
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Markdown report typography. */
+.prose-signal {
+  font-size: 15px;
+  line-height: 1.75;
+  color: #e4e4e7;
+  overflow-wrap: anywhere;
+}
+
+.prose-signal h2 {
+  margin: 1.5em 0 0.6em;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fafafa;
+}
+
+.prose-signal h2:first-child {
+  margin-top: 0;
+}
+
+.prose-signal h3 {
+  margin: 1.25em 0 0.5em;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fafafa;
+}
+
+.prose-signal p {
+  margin: 0.75em 0;
+}
+
+.prose-signal ul,
+.prose-signal ol {
+  margin: 0.75em 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.prose-signal ul {
+  list-style: disc;
+}
+
+.prose-signal ol {
+  list-style: decimal;
+}
+
+.prose-signal li::marker {
+  color: #71717a;
+}
+
+.prose-signal strong {
+  color: #fafafa;
+  font-weight: 600;
+}
+
+.prose-signal code {
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.07);
+  padding: 0.1em 0.35em;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.85em;
+}
+
+.prose-signal a:not([class]) {
+  color: #7dd3fc;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose-signal hr {
+  margin: 1.5em 0;
+  border-color: rgb(255 255 255 / 0.08);
+}
+
+.prose-signal table {
+  width: 100%;
+  margin: 1em 0;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.prose-signal th,
+.prose-signal td {
+  border: 1px solid rgb(255 255 255 / 0.1);
+  padding: 0.45em 0.7em;
+  text-align: left;
+}
+
+.prose-signal th {
+  background: rgb(255 255 255 / 0.04);
+  font-weight: 600;
+}
