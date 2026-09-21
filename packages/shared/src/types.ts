@@ -31,7 +31,13 @@ export type SseEvent =
   | { event: "plan"; data: { sub_questions: SubQuestion[] } }
   | {
       event: "search_progress";
-      data: { sub_q_id: string; status: "done"; urls: string[]; claims: number };
+      data: {
+        sub_q_id: string;
+        status: "done";
+        urls: string[];
+        sources: { url: string; title: string }[];
+        claims: number;
+      };
     }
   | {
       event: "claim_verified";

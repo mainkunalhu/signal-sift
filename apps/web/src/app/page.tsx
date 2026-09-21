@@ -9,6 +9,7 @@ import SourcesPanel from "../components/SourcesPanel";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { autoTitle, createChat, type ChatMessage } from "../lib/api";
+import type { Citation } from "../lib/events";
 import { streamResearch } from "../lib/sse";
 
 const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
@@ -27,6 +28,9 @@ const emptyLive = (): LiveState => ({
   tokens: 0,
 });
 
+const EMPTY_SET = new Set<string>();
+const MAX_LIVE_SOURCES = 15;
+
 function contestedOf(graph: ChatMessage["graph"]): Set<string> {
   try {
     const claims =
@@ -44,6 +48,7 @@ export default function Home() {
   const [running, setRunning] = useState(false);
   const [live, setLive] = useState<LiveState>(emptyLive);
   const [liveTokens, setLiveTokens] = useState("");
+  const [liveSources, setLiveSources] = useState<Citation[]>([]);
   const [tokensActive, setTokensActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [highlightUrl, setHighlightUrl] = useState<string | null>(null);
@@ -68,7 +73,7 @@ export default function Home() {
   useEffect(() => {
     const el = threadRef.current;
     if (el && running) el.scrollTop = el.scrollHeight;
-  }, [running, liveTokens, messages.length]);
+  }, [running, liveTokens, liveSources.length, messages.length]);
 
   const newChat = useCallback(() => {
     abortRef.current?.abort();
@@ -78,6 +83,7 @@ export default function Home() {
     setMessages([]);
     setLive(emptyLive());
     setLiveTokens("");
+    setLiveSources([]);
     setError(null);
   }, [stopTokensActive]);
 
@@ -91,6 +97,7 @@ export default function Home() {
       setError(null);
       setLive(emptyLive());
       setLiveTokens("");
+      setLiveSources([]);
       stopTokensActive();
       setRunning(true);
       setMessages((prev) => [
@@ -127,7 +134,21 @@ export default function Home() {
               case "plan":
                 setLive((l) => ({ ...l, plan: e.data.sub_questions }));
                 break;
-              case "search_progress":
+              case "search_progress": {
+                const incoming: Citation[] =
+                  e.data.sources ??
+                  e.data.urls.map((url: string) => ({ url, title: "" }));
+                setLiveSources((prev) => {
+                  const seen = new Set(prev.map((s) => s.url));
+                  const merged = [...prev];
+                  for (const s of incoming) {
+                    if (!seen.has(s.url) && merged.length < MAX_LIVE_SOURCES) {
+                      seen.add(s.url);
+                      merged.push({ url: s.url, title: s.title || s.url });
+                    }
+                  }
+                  return merged;
+                });
                 setLive((l) => ({
                   ...l,
                   progress: {
@@ -136,6 +157,7 @@ export default function Home() {
                   },
                 }));
                 break;
+              }
               case "claim_verified":
                 setLive((l) => ({
                   ...l,
@@ -327,6 +349,15 @@ export default function Home() {
                     <ResearchProgress live={live} running={running} />
                     <p className="text-sm text-zinc-500">Gathering evidence…</p>
                   </>
+                )}
+                {liveSources.length > 0 && (
+                  <div className="mt-4">
+                    <SourcesPanel
+                      sources={liveSources}
+                      contestedUrls={EMPTY_SET}
+                      highlightUrl={highlightUrl}
+                    />
+                  </div>
                 )}
               </div>
             )}

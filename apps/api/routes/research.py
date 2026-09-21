@@ -135,12 +135,16 @@ async def research(req: ResearchRequest):
             elif "researcher" in chunk:
                 for sq_id, result in chunk["researcher"].get("retrievals", {}).items():
                     results[sq_id] = result
+                    snippets = result.get("snippets", [])
                     yield _event(
                         "search_progress",
                         {
                             "sub_q_id": sq_id,
                             "status": "done",
-                            "urls": [s["url"] for s in result.get("snippets", [])],
+                            "urls": [s["url"] for s in snippets],
+                            "sources": [
+                                {"url": s["url"], "title": s.get("title", "")} for s in snippets
+                            ],
                             "claims": len(result.get("claims", [])),
                         },
                     )
@@ -168,6 +172,10 @@ async def research(req: ResearchRequest):
             for s in r.get("snippets", [])
         ][: req.max_sources]
 
+        # Persist docs/claims BEFORE synthesis so `done` fires instantly after
+        # the last token (previously the embed+DB save delayed sources by seconds).
+        query_id = await _persist_best_effort(req, public_results, graph_state)
+
         # Synthesis runs concurrently while tokens drain live: produce and
         # consume overlap instead of buffering the whole draft first.
         gen_queue: asyncio.Queue = asyncio.Queue()
@@ -182,7 +190,6 @@ async def research(req: ResearchRequest):
             yield await gen_queue.get()
         synthesis = await synth_task
 
-        query_id = await _persist_best_effort(req, public_results, graph_state)
         latency_ms = int((time.perf_counter() - t0) * 1000)
         report_md = synthesis.report_md if synthesis else ""
         message_id = await _save_assistant_message(
